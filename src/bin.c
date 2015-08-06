@@ -8,11 +8,11 @@
 #define RETURN_R 
 
 // called from R and handles passing of data to and from 
-SEXP bin(SEXP x, SEXP y, SEXP miniv, SEXP mincnt, SEXP maxbin, SEXP monotonicity, SEXP sv) {
+SEXP bin(SEXP x, SEXP y, SEXP miniv, SEXP mincnt, SEXP maxbin, SEXP monotonicity) {
   
-  double *dx = REAL(x), *dy = REAL(y), *dsv = REAL(sv);
+  double *dx = REAL(x), *dy = REAL(y);
   
-  struct variable* v = variable_factory(dx, LENGTH(x), dsv, LENGTH(sv));
+  struct variable* v = variable_factory(dx, LENGTH(x));
   struct xtab* xtab = xtab_factory(v, dy); // create the xtab
   
   struct queue* q = queue_factory(); // create the queue
@@ -24,16 +24,7 @@ SEXP bin(SEXP x, SEXP y, SEXP miniv, SEXP mincnt, SEXP maxbin, SEXP monotonicity
   int num_bins = 1;
   
   // TODO: replace with function -- calculate totals where not missing
-  double grand_tots[2] = {0, 0};
-  for (size_t i = 0; i < LENGTH(y); i++){
-    if (!ISNA(dx[i])) {
-      if (dy[i] == 0) {
-        grand_tots[0]++;
-      } else {
-        grand_tots[1]++;
-      }
-    }
-  }
+  double* grand_tots = get_xtab_totals(xtab, 0, xtab->size);
   
   // fille options structure
   struct opts opts;
@@ -59,69 +50,15 @@ SEXP bin(SEXP x, SEXP y, SEXP miniv, SEXP mincnt, SEXP maxbin, SEXP monotonicity
 
   // return breaks in an R object
 #ifdef RETURN_R
-  SEXP retList = PROTECT(retList = allocVector(VECSXP, 5));
-  SEXP names;
-  PROTECT(names = allocVector(STRSXP, 5));
-  SET_STRING_ELT(names, 0, mkChar("breaks"));
-  SET_STRING_ELT(names, 1, mkChar("values"));
-  SET_STRING_ELT(names, 2, mkChar("na"));
-  SET_STRING_ELT(names, 3, mkChar("sb"));
-  SET_STRING_ELT(names, 4, mkChar("sv"));
-  setAttrib(retList, R_NamesSymbol, names);
-  
-  SEXP class_name;
-  PROTECT(class_name = allocVector(STRSXP, 1));
-  SET_STRING_ELT(class_name, 0, mkChar("bin"));
-  setAttrib(retList, R_ClassSymbol, class_name);
-  
   SEXP r_brk = PROTECT(allocVector(REALSXP, num_bins + 1));
-  SEXP r_woe = PROTECT(allocVector(REALSXP, num_bins));
-  SEXP r_na_woe = PROTECT(allocVector(REALSXP, 1));
-  SEXP r_sv_breaks = PROTECT(allocVector(REALSXP, LENGTH(sv)));
-  SEXP r_sv_woe = PROTECT(allocVector(REALSXP, LENGTH(sv)));
   size_t j = 0;
   REAL(r_brk)[0] = R_NegInf;
-  double ones_ct = 0, zero_ct = 0;
   for(size_t i = 0; i < xtab->size; i++) {
-    zero_ct += xtab->zero_ct[i];
-    ones_ct += xtab->ones_ct[i];
     if (breaks[i] == 1) {
       j++;
       REAL(r_brk)[j] = xtab->values[i];
-      // TODO: make woe function
-      double woe = log((ones_ct/grand_tots[1])/(zero_ct/grand_tots[0]));
-      REAL(r_woe)[j-1] = isinf(woe) ? 0 : woe;
-      zero_ct = ones_ct = 0;
-    }
-    REAL(r_brk)[j + 1] = R_PosInf;
-    REAL(r_woe)[j] = log((ones_ct/grand_tots[1])/(zero_ct/grand_tots[0]));
-  }
-  
-  // TODO: move to function and tidy up
-  double overall_woe = 0;
-  for (size_t i = 0; i < LENGTH(y); i++){
-    overall_woe += REAL(y)[i];
-  }
-  overall_woe = overall_woe/(double)LENGTH(y);
-  overall_woe = log(overall_woe/(1-overall_woe));
-  
-  REAL(r_na_woe)[0] = 0;
-  
-  for (size_t i = 0; i < LENGTH(sv); i++) {
-    REAL(r_sv_breaks)[i] = dsv[i];
-    double sv_woe = calc_sv_woe(dx, dy, LENGTH(x), dsv[i], grand_tots);
-    if (ISNAN(sv_woe) | isinf(sv_woe)) {
-      REAL(r_sv_woe)[i] = overall_woe;  
-    } else {
-      REAL(r_sv_woe)[i] = sv_woe;
     }
   }
-  
-  SET_VECTOR_ELT(retList, 0, r_brk);
-  SET_VECTOR_ELT(retList, 1, r_woe);
-  SET_VECTOR_ELT(retList, 2, r_na_woe);
-  SET_VECTOR_ELT(retList, 3, r_sv_breaks);
-  SET_VECTOR_ELT(retList, 4, r_sv_woe);
 #endif 
   
   // Release resources
@@ -131,8 +68,8 @@ SEXP bin(SEXP x, SEXP y, SEXP miniv, SEXP mincnt, SEXP maxbin, SEXP monotonicity
   free(breaks);
   
 #ifdef RETURN_R 
-  UNPROTECT(8);
-  return retList;
+  UNPROTECT(1);
+  return r_brk;
 #endif
   
   return R_NilValue;

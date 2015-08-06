@@ -119,16 +119,16 @@ xeno.table <- function(x, y, object) {
 }
 
 
-bins <- bin.data(rv50[,keep50], rv50$depvar, mono=1)
-xeno <- lapply(names(bins), function(x) xeno.table(rv50[,x], rv50$depvar, bins[[x]]))
-names(xeno) <- names(bins)
-ivs <- sapply(xeno, function(x) {f <- !(is.na(x[,'IV']) | is.infinite(x[,'IV'])); sum(x[f,'IV'])})
+# bins <- bin.data(rv50[,keep50], rv50$depvar, mono=1)
+# xeno <- lapply(names(bins), function(x) xeno.table(rv50[,x], rv50$depvar, bins[[x]]))
+# names(xeno) <- names(bins)
+# ivs <- sapply(xeno, function(x) {f <- !(is.na(x[,'IV']) | is.infinite(x[,'IV'])); sum(x[f,'IV'])})
 
-for(x in names(xeno[order(-ivs)])) {
-  cat(sprintf("Variable %32s | IV: %1.5f\n", x, ivs[x]), file='test2.txt', append = T);
-  write.table(xeno[[x]], file = 'test2.txt', append = T, sep = '\t', col.names = NA)
-  cat("\n", file='test2.txt', append = T);
-}
+# for(x in names(xeno[order(-ivs)])) {
+#   cat(sprintf("Variable %32s | IV: %1.5f\n", x, ivs[x]), file='test2.txt', append = T);
+#   write.table(xeno[[x]], file = 'test2.txt', append = T, sep = '\t', col.names = NA)
+#   cat("\n", file='test2.txt', append = T);
+# }
 
   
   
