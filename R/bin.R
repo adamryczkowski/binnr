@@ -56,10 +56,10 @@ bin <- function(x, y=NULL, name=NULL, min.iv=.01, min.cnt = NULL, max.bin=10, mo
     type <- "numeric"
     brks <-
       .Call('bin', as.double(x[!f1]), as.double(y[!f1]), as.double(min.iv),
-                   as.integer(min.cnt), as.integer(max.bin), as.integer(mono),
-                   as.double(exceptions))
+                          as.integer(min.cnt), as.integer(max.bin), as.integer(mono),
+                          as.double(exceptions))[-1]
     
-    xb <- cut(x[!f], brks, labels = brks[-1]) # x-binned witout na or exceptions
+    xb <- cut(x[!f], c(-Inf, brks), labels = brks) # x-binned witout na or exceptions
     counts <- table(xb, factor(y[!f], levels=c(0, 1)))
     woe <- woe(xb, y[!f], y0, y1)
     
@@ -75,7 +75,7 @@ bin <- function(x, y=NULL, name=NULL, min.iv=.01, min.cnt = NULL, max.bin=10, mo
     
     map <- as.list(levels(x))
     names(map) <- levels(x)
-      
+        
     woe <- woe(x, y, y0, y1)
     brks <- levels(x)
     exceptions <- NULL
@@ -85,33 +85,31 @@ bin <- function(x, y=NULL, name=NULL, min.iv=.01, min.cnt = NULL, max.bin=10, mo
     except_zero <- NULL
   }
   
-  num_ones <- counts[,2]
-  num_zero <- counts[,1]
-  
-  structure(list(
-    x = x,
-    y = y,
-    name = name,
-    type = type,
-    map = map,
-    breaks = brks,
-    values = woe,
-    num_ones = num_ones,
-    num_zero = num_zero,
-    na = 0,
-    na_ones = sum(y[is.na(x)] == 1),
-    na_zero = sum(y[is.na(x)] == 0),
-    exceptions = sort(unique(x[f0])),
-    except_woe = except_woe,
-    except_ones = except_ones,
-    except_zero = except_zero,
-    history=list(),
-    skip=FALSE,
+  brks  <- list(v=brks, n=NA, e=sort(unique(x[f0])))
+  subst <- list(v=woe, n=0, e=except_woe)
+  ones  <- list(v=counts[,2], n=sum(y[is.na(x)] == 1), e=except_ones)
+  zero  <- list(v=counts[,1], n=sum(y[is.na(x)] == 0), e=except_zero)
+  opts  <- list(
     mono=mono,
     min.iv=min.iv,
     exceptions=exceptions,
     min.cnt=min.cnt,
     max.bin=max.bin
+  )
+  
+  structure(list(
+    name = name,
+    x = x,
+    y = y,
+    type = type,
+    map = map,
+    breaks=brks,
+    subst=subst,
+    ones=ones,
+    zero=zero,
+    skip=FALSE,
+    opts=opts,
+    history=list()
   ), class = "bin")
 }
 
@@ -197,31 +195,32 @@ predict.bin.list <- function(object, newdata) {
 }
 
 collapse.bin.numeric <- function(e1, e2) {
-  if (max(e2) > length(e1$values)) {
-    warning("Cannot collapse exception bins")
-    return(e1)
-  }
+  # check that values are adjacent
+  stopifnot(all(diff(e2) == 1))
+  
   out <- e1
   
-  if(e2[1] == 1 & length(e2) == 1) e2 <- 1:2
+  brks  <- unlist(e1$breaks)
+  subst <- unlist(e1$subst)
+  ones  <- unlist(e1$ones)
+  zero  <- unlist(e1$zero)
   
-  a <- e2[1]
-  z <- max(a + 1, e2[length(e2)])
+  ones[e2[1]] <- sum(ones[e2])
+  zero[e2[1]] <- sum(zero[e2])
   
-  new_breaks <- e1$breaks[-((a+1):z)]
-  new_ones   <- e1$num_ones[-(a:(z-1))]
-  new_zero   <- e1$num_zero[-(a:(z-1))]
+  brks[tail(e2,-1)]  <- NA
+  subst[tail(e2,-1)] <- NA
+  ones[tail(e2,-1)]  <- NA
+  zero[tail(e2,-1)]  <- NA
   
-  new_ones[e2[1]] <- sum(e1$num_ones[a:z])
-  new_zero[e2[1]] <- sum(e1$num_zero[a:z])
+  woe <- log((ones/sum(ones, na.rm=T))/(zero/sum(zero, na.rm=T)))
   
-  pct1 <- new_ones/sum(new_ones)
-  pct0 <- new_zero/sum(new_zero)
-  
-  out$values   <- log(pct1/pct0)
-  out$num_ones <- new_ones
-  out$num_zero <- new_zero
-  out$breaks   <- new_breaks
+  out$breaks  <- lapply(relist(brks, e1$breaks), na.exclude)
+  out$breaks$na <- NA
+  out$subst   <- lapply(relist(woe , e1$subst) , na.exclude)
+  out$ones    <- lapply(relist(ones, e1$ones)  , na.exclude)
+  out$zero    <- lapply(relist(zero, e1$zero)  , na.exclude)
+  out$history <- e1
   out
 }
 
@@ -252,9 +251,15 @@ collapse.bin.numeric <- function(e1, e2) {
 expand.bin.numeric <- function(e1, e2) {
   out <- e1
   n <- length(e1$num_ones)
-  f <-  (e1$x > e1$breaks[e2] & e1$x <= e1$breaks[e2 + 1]) &
-    !(e1$x %in% e1$exceptions) &
-    !is.na(e1$x)
+  
+  comp <- ifelse(e2 == 1, 1, ifelse(e2 == n), 2, 3)
+  
+  lo <- switch(comp, -Inf, )
+  
+  if(e2 == 1) -Inf  e1$breaks$v[e2]
+  hi <- if(e2 == 1) e1$breaks$v[e2] else e1$breaks$v[e2 + 1]
+  
+  f <-  (e1$x > lo & e1$x <= hi) & !(e1$x %in% e1$breaks$e) & !is.na(e1$x)
   
   nvals <- length(unique(e1$x[f]))
   
@@ -272,24 +277,21 @@ expand.bin.numeric <- function(e1, e2) {
     eps <- head(as.numeric(gsub('\\(|\\]', '', eps)), -1)
   }
   
-  if (e2 == 1) { # if first
-    new_ones <- c(b$num_ones, e1$num_ones[-1])
-    new_zero <- c(b$num_zero, e1$num_zero[-1])
-  } else if (e2 == n) { # if last
-    new_ones <- c(e1$num_ones[1:(e2-1)], b$num_ones)
-    new_zero <- c(e1$num_zero[1:(e2-1)], b$num_zero)
-  } else { # if in-between
-    new_ones <- c(e1$num_ones[1:(e2-1)], b$num_ones, e1$num_ones[(e2+1):length(e1$num_ones)])
-    new_zero <- c(e1$num_zero[1:(e2-1)], b$num_zero, e1$num_zero[(e2+1):length(e1$num_zero)])  
-  }
+#   if (e2 == 1) { # if first
+#     new_ones <- c(b$num_ones, e1$num_ones[-1])
+#     new_zero <- c(b$num_zero, e1$num_zero[-1])
+#   } else if (e2 == n) { # if last
+#     new_ones <- c(e1$num_ones[1:(e2-1)], b$num_ones)
+#     new_zero <- c(e1$num_zero[1:(e2-1)], b$num_zero)
+#   } else { # if in-between
+#   }
+  ones <- c(e1$ones$v[1:(e2-1)], b$ones$v, e1$ones$v[(e2+1):length(e1$ones$v)])
+  zero <- c(e1$zero$v[1:(e2-1)], b$zero$v, e1$zero$v[(e2+1):length(e1$zero$v)])
   
-  pct1 <- new_ones/sum(new_ones, na.rm=T)
-  pct0 <- new_zero/sum(new_zero, na.rm=T)
-  
-  out$values   <- log(pct1/pct0)
-  out$num_ones <- new_ones
-  out$num_zero <- new_zero
-  out$breaks   <- c(e1$breaks[1:(e2)], eps, e1$breaks[(e2 + 1):length(e1$breaks)])
+  out$values$v   <- log((ones/sum(ones, na.rm=T))/(zero/sum(zero, na.rm=T)))
+  out$ones$v <- ones
+  out$zero$v <- zero
+  out$breaks$v <- c(e1$breaks$v[1:(e2)], eps, e1$breaks$v[(e2 + 1):length(e1$breaks$v)])
   out$history <- e1
   out
 }
@@ -300,12 +302,13 @@ expand.bin.numeric <- function(e1, e2) {
 collapse.bin.factor <- function(e1, e2) {
   x <- e1$x
   map <- e1$map
-  f <- e1$map %in% e1$breaks[e2]
-  map[f] <- paste(e1$breaks[e2], collapse=',')
+  f <- e1$map %in% e1$breaks$v[e2]
+  map[f] <- paste(e1$breaks$v[e2], collapse=',')
   levels(x) <- unlist(map)
   b <- bin(x, e1$y, e1$name)
   b$map <- map
   b$x <- e1$x
+  b$history <- e1
   b
 }
 
@@ -374,8 +377,8 @@ undo <- function(x) {
 
 #' @export
 as.data.frame.bin <- function(x, row.names = NULL, optional = FALSE, ...) {
-  zero_ct <- c(x$num_zero, x$except_zero, x$na_zero)
-  ones_ct <- c(x$num_ones, x$except_ones, x$na_ones)
+  zero_ct <- unlist(x$zero)
+  ones_ct <- unlist(x$ones)
   tot_ct  <- zero_ct + ones_ct
   zero_pct <- c(head(zero_ct, -1) / sum(head(zero_ct, -1), na.rm=T), NA)
   ones_pct <- c(head(ones_ct, -1) / sum(head(ones_ct, -1), na.rm=T), NA)
@@ -391,14 +394,23 @@ as.data.frame.bin <- function(x, row.names = NULL, optional = FALSE, ...) {
   keep <- which(!apply(out, 1, function(x) all(is.na(x))))
   out <- out[keep,]
   
-  if(x$type == "numeric") {
-    rnames <- paste('(', paste(head(x$breaks, -1), x$breaks[-1], sep = " - "), ']', sep='')
-    rnames <- c(rnames, x$exceptions)[head(keep, -1)]
-    rnames <- c(paste(sprintf("%2d:", seq(1,length(rnames))), rnames), "Missing")
-  } else {
-    rnames <- paste(sprintf("%2d:", seq(1, length(x$breaks))), c(x$breaks))
-    rnames <- c(rnames, "Missing")
-  }
+  #breaks <- x$breaks$v
+  #rnames <- unlist(x$breaks)
+#   if(x$type == "numeric") {
+#     #rnames <- paste('(', paste(head(breaks, -1), breaks[-1], sep = " - "), ']', sep='')
+#     #rnames <- c(rnames, x$exceptions)[head(keep, -1)]
+#     #rnames <- c(paste(sprintf("%2d:", seq(1,length(rnames))), rnames), "Missing")
+#   } else {
+#     rnames <- paste(sprintf("%2d:", seq(1, length(x$breaks))), c(x$breaks))
+#     rnames <- c(rnames, "Missing")
+#   }
+  
+  # TODO: figure out names
+  rnames <- x$breaks
+  rnames$v <- paste('(', c(-Inf, head(rnames$v, -1)), '-', c( rnames$v), ']')
+  rnames <- unlist(rnames)
+  rnames <- unlist(x$breaks)
+  rnames[is.na(rnames)] <- "Missing"
   
   out[nrow(out), c('WoE', 'IV')] <- 0
   out[is.infinite(out[,'WoE']),'WoE'] <- 0
@@ -509,8 +521,8 @@ adjust.bins <- function(x, vars=NULL, min.iv=0) {
     if (command == "Q") {
       break
     }  else if (command %in% c("h", "help")) {
-      cat(
-"binnr interactive commands:
+      cat("
+Interactive commands:
  (Q)uit
  (n)ext
  (p)revious
