@@ -27,8 +27,7 @@ get.meta.attr <- function(bins, attr) {
 
 #' @export
 set.meta.attr <- function(bins, attr, vars, value) {
-  if (!is.character(vars)) vars <- names(bins)[vars]
-  UseMethod("set.meta.attr")
+  UseMethod("set.meta.attr", bins)
 }
 
 #' @export

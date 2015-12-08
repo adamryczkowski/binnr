@@ -48,7 +48,7 @@ bin.factor <- function(x, y=NULL, name=NULL, min.iv=.01, min.cnt = NULL, min.res
   map <- as.list(levels(x))
   names(map) <- levels(x)
   
-  bin.factory.factor(x, y, map, name, options)
+  bin.factory(x, y, map, name, options)
   
 }
 

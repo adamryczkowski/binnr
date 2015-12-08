@@ -31,7 +31,7 @@
 #' @export
 fit <- function(x, data=NULL, y=NULL, nfolds=3, lower.limits=0, upper.limits=3,
                 family="binomial", alpha=1, drop=F) {
-  UseMethod("fit")
+  UseMethod("fit", x)
 }
 
 #' @export

@@ -44,7 +44,7 @@ get.all.rcs <- function(mod, data) {
 #' 
 #' @export
 rc.table <- function(x, data, nret, seg) {
-  UseMethod("rc.table")
+  UseMethod("rc.table", x)
 }
 
 # return a table of the rc rates for each position

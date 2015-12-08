@@ -54,7 +54,7 @@ bin.numeric <- function(x, y=NULL, name=NULL, min.iv=.01, min.cnt = NULL, min.re
           as.double(min.iv), as.integer(min.cnt), as.integer(min.res),
           as.integer(max.bin), as.integer(mono), as.double(exceptions))
   
-  bin.factory.numeric(x, y, breaks, name, options)
+  bin.factory(x, y, breaks, name, options)
 }
 
 #' @export

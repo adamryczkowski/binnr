@@ -1,6 +1,6 @@
 #' @export
 adjust <- function(x, ...) {
-  UseMethod("adjust")
+  UseMethod("adjust", x)
 }
 
 #' @export

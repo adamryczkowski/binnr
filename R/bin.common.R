@@ -36,7 +36,7 @@ bin <- function(x, y, seg=NULL, name, min.iv, min.cnt, min.res, max.bin, mono, e
 }
 
 bin.factory <- function(x, ...) {
-  UseMethod("bin.factory")
+  UseMethod("bin.factory", x)
 }
 
 #' @export
