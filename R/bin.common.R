@@ -31,12 +31,12 @@
 #' @return a \code{bin} or \code{bin.list} object
 #' 
 #' @export
-bin <- function(x, y, seg=NULL, name, min.iv, min.cnt, min.res, max.bin, mono, exceptions){
+bin <- function(x, y, w=NULL, seg=NULL, name, min.iv, min.cnt, min.res, max.bin, mono, exceptions){
   UseMethod("bin", x)
 }
 
-bin.factory <- function(x, ...) {
-  UseMethod("bin.factory")
+bin.factory <- function(x, y, w=NULL, breaks, name, options, ...) {
+  UseMethod("bin.factory", x)
 }
 
 #' @export
@@ -44,9 +44,10 @@ is.bin <- function(x) {
   inherits(x, "bin")
 }
 
-
 #' @export
-bin.data.frame <- function(df, y, seg=NULL, mono=c(ALL=0), exceptions=list(ALL=NULL), ...) {
+bin.data.frame <- function(df, y, w=NULL, seg=NULL, mono=c(ALL=0), exceptions=list(ALL=NULL), ...) {
+  if (is.null(w)) w <- rep(1, nrow(df))
+  
   if(!is.null(seg)) {
     xs <- split(df, seg, drop=T)
     ys <- split(y, seg, drop=T)
@@ -126,7 +127,7 @@ as.data.frame.bin <- function(x, row.names = NULL, optional = FALSE, ...) {
 print.bin <- function(x, ...) {
   out <- as.data.frame(x)
   iv <- out['Total', 'IV']
-  fmts <- c(rep("%d",3), rep("%1.3f", 4), "%0.5f", "%s", "%1.3f", "%s")
+  fmts <- c(rep("%0.1f",3), rep("%1.3f", 4), "%0.5f", "%s", "%1.3f", "%s")
   
   for (i in seq_along(out)) { out[,i] <- sprintf(fmts[i], out[,i]) }
   

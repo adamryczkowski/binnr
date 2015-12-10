@@ -89,9 +89,11 @@ woe <- function(cnts, y) {
   woe
 }
 
-cnts <- function(x, y, nms=NULL) {
+cnts <- function(x, y, w, nms=NULL) {
   tbl <- table(x, factor(y, levels=c(0,1)), useNA='ifany')
-  if (sum(tbl) == 0) {
+  #tbl <- as.table(tapply(w, list(x, factor(y, levels=c(0,1))), sum))
+  tbl[is.na(tbl)] <- 0
+  if (sum(tbl, na.rm=T) == 0) {
     if (!is.null(nms)) {
       return(matrix(0, nrow=1, ncol=2, dimnames = list(nms)))
     } else {

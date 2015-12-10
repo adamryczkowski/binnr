@@ -1,12 +1,12 @@
-bin.factory.numeric <- function(x, y, breaks, name, options) {
+bin.factory.numeric <- function(x, y, w=NULL, breaks, name, options) {
   exc <- (x %in% options$exceptions)
   f   <- !(is.na(x) | exc)
   xb  <- cut(x[f], breaks, dig.lab = 10)
   
   counts <- list(
-    var=cnts(xb, y[f]),
-    exc=cnts(x[exc], y[exc]),
-    nas=cnts(x[is.na(x)], y[is.na(x)], NA)
+    var=cnts(xb, y[f], w[f]),
+    exc=cnts(x[exc], y[exc], w[exc]),
+    nas=cnts(x[is.na(x)], y[is.na(x)], w[is.na(x)], NA)
   )
   
   values <- list(
@@ -38,7 +38,7 @@ bin.factory.numeric <- function(x, y, breaks, name, options) {
 }
 
 #' @export
-bin.numeric <- function(x, y=NULL, name=NULL, min.iv=.01, min.cnt = NULL, min.res = 0, max.bin=10, mono=0, exceptions=numeric(0)) {
+bin.numeric <- function(x, y=NULL, w=NULL, name=NULL, min.iv=.01, min.cnt = NULL, min.res = 0, max.bin=10, mono=0, exceptions=numeric(0)) {
   if(is.null(min.cnt)) min.cnt <- sqrt(length(x))
   
   options <- list(
@@ -54,7 +54,7 @@ bin.numeric <- function(x, y=NULL, name=NULL, min.iv=.01, min.cnt = NULL, min.re
           as.double(min.iv), as.integer(min.cnt), as.integer(min.res),
           as.integer(max.bin), as.integer(mono), as.double(exceptions))
   
-  bin.factory.numeric(x, y, breaks, name, options)
+  bin.factory.numeric(x, y, w, breaks, name, options)
 }
 
 #' @export

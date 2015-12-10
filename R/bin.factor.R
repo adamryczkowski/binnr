@@ -1,8 +1,9 @@
-bin.factory.factor <- function(x, y, breaks, name, options) {
+bin.factory.factor <- function(x, y, w=NULL, breaks, name, options) {
+  if (is.null(w)) w <- rep(1, length(x))
   counts <- list(
-    var=cnts(x[!is.na(x)], y[!is.na(x)]),
+    var=cnts(x[!is.na(x)], y[!is.na(x)], w[!is.na(x)]),
     exc=matrix(nrow=0,ncol=2),
-    nas=cnts(factor(x[is.na(x)], levels=NA), y[is.na(x)], NA)
+    nas=cnts(factor(x[is.na(x)], levels=NA, exclude=NULL), y[is.na(x)], w[is.na(x)], NA)
   )
   
   values <- list(
@@ -34,7 +35,7 @@ bin.factory.factor <- function(x, y, breaks, name, options) {
 }
 
 #' @export
-bin.factor <- function(x, y=NULL, name=NULL, min.iv=.01, min.cnt = NULL, min.res = 0, max.bin=10, mono=0, exceptions=numeric(0)) {
+bin.factor <- function(x, y=NULL, w=NULL, name=NULL, min.iv=.01, min.cnt = NULL, min.res = 0, max.bin=10, mono=0, exceptions=numeric(0)) {
   if(is.null(min.cnt)) min.cnt <- sqrt(length(x))
   
   options <- list(
@@ -48,7 +49,7 @@ bin.factor <- function(x, y=NULL, name=NULL, min.iv=.01, min.cnt = NULL, min.res
   map <- as.list(levels(x))
   names(map) <- levels(x)
   
-  bin.factory.factor(x, y, map, name, options)
+  bin.factory.factor(x, y, w, map, name, options)
   
 }
 
